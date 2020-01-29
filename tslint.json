@@ -3,7 +3,7 @@
     "rulesDirectory": ["tslint.json"],
     "rules": {
         "max-line-length": {
-            "options": [120]
+            "options": [140]
         },
         "new-parens": true,
         "no-arg": true,
@@ -14,7 +14,7 @@
     },
     "jsRules": {
         "max-line-length": {
-            "options": [120]
+            "options": [140]
         }
     }
 }

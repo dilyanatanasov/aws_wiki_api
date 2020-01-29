@@ -1,64 +1,107 @@
 "use strict";
 exports.__esModule = true;
 var https = require("https");
-var language = 'en';
-var pageName = 'DoceboLMS';
-var distilledtext = 'distilledtext';
-var missingtitle = 'missingtitle';
-if ((language === '' || language === undefined) ||
-    (pageName === '' || pageName === undefined)) {
-    var data = {
-        error: "Missing mandatory params"
-    };
-    console.log(JSON.stringify(data));
-}
-else {
-    var url = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + pageName + "&prop=wikitext&format=json";
-    https.get(url, function (res) {
-        var data = '';
-        res.on('data', function (chunk) {
-            data += chunk;
-        });
-        res.on('end', function () {
-            var parsedData = JSON.parse(data);
-            if (parsedData.error !== undefined) {
-                if (parsedData.error.code === missingtitle) {
-                    var errorData = {
-                        error: "Page not foud"
-                    };
-                    return JSON.stringify(errorData);
-                }
-            }
-            else {
-                var wikitext = parsedData.parse.wikitext['*'];
-                var patterns = [
-                    /(<ref .*?<\/ref>)/g,
-                    /(<ref>.*?<\/ref>)/g,
-                    /([\[\]])/g,
-                    /(<ref.*?\/>)/g,
-                    /({{.*?}})/g
-                ];
-                var distilled = wikitext;
-                for (var _i = 0, patterns_1 = patterns; _i < patterns_1.length; _i++) {
-                    var element = patterns_1[_i];
-                    distilled = regex_replace(distilled, element);
-                }
-                var splitDistilled = distilled.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
-                console.log(splitDistilled);
-                var obj = { splitDistilled: splitDistilled };
-                parsedData.parse[distilledtext] = obj;
-            }
-        });
-    }).on('error', function (e) {
-        if (e.code !== undefined) {
-            var errorData = {
-                error: "Invalid Language"
-            };
-            console.log(JSON.stringify(errorData));
+var WikiApi = (function () {
+    function WikiApi() {
+        this.distilledTextLabel = 'distilledtext';
+        this.pageNotFound = 'missingtitle';
+        this.httpResponseData = '';
+        this.errorPage = 'page';
+        this.errorLanguage = 'lang';
+        this.errorParam = 'param';
+        this.noError = 'none';
+        this.setUrlProperties();
+        this.escapeParams();
+        this.getWikiData(this.language, this.pageName);
+    }
+    WikiApi.prototype.getWikiData = function (language, pageName) {
+        var _this = this;
+        if ((language === '' || language === undefined) || (pageName === '' || pageName === undefined)) {
+            this.returnResponse(this.errorParam);
         }
-    });
-}
-function regex_replace(text, pattern) {
-    return text.replace(pattern, "");
-}
+        else {
+            this.setUrlPath(language, pageName);
+            https.get(this.url, function (res) {
+                res.on('data', function (chunk) {
+                    _this.httpResponseData += chunk;
+                });
+                res.on('end', function () {
+                    var parsedHttpData = JSON.parse(_this.httpResponseData);
+                    if (parsedHttpData.error !== undefined && parsedHttpData.error.code === _this.pageNotFound) {
+                        _this.returnResponse(_this.errorPage);
+                    }
+                    else {
+                        var wikitext = parsedHttpData.parse.wikitext['*'];
+                        var distilledText = _this.paragraphsToJson(_this.paragraphsToArray(_this.filterMediaTags(wikitext)));
+                        parsedHttpData.parse[_this.distilledTextLabel] = distilledText;
+                        _this.returnResponse(_this.noError, parsedHttpData);
+                    }
+                });
+            }).on('error', function (e) {
+                _this.returnResponse(_this.errorLanguage);
+            });
+        }
+    };
+    WikiApi.prototype.setUrlProperties = function () {
+        this.language = 'en';
+        this.pageName = 'DoceboLMS';
+    };
+    WikiApi.prototype.setUrlPath = function (language, page) {
+        this.url = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
+    };
+    WikiApi.prototype.escapeParams = function () {
+        this.language = encodeURI(this.language);
+        this.pageName = encodeURI(this.pageName);
+    };
+    WikiApi.prototype.regex_replace = function (text, pattern) {
+        return text.replace(pattern, "");
+    };
+    WikiApi.prototype.filterMediaTags = function (wikitext) {
+        var patterns = [
+            /(<ref .*?<\/ref>)/g,
+            /(<ref>.*?<\/ref>)/g,
+            /([\[\]])/g,
+            /(<ref.*?\/>)/g,
+            /({{.*?}})/g
+        ];
+        var distilled = wikitext;
+        for (var _i = 0, patterns_1 = patterns; _i < patterns_1.length; _i++) {
+            var element = patterns_1[_i];
+            distilled = this.regex_replace(distilled, element);
+        }
+        return distilled;
+    };
+    WikiApi.prototype.paragraphsToArray = function (distilled) {
+        return distilled.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    };
+    WikiApi.prototype.paragraphsToJson = function (distilled) {
+        var paragraphNumber = 1;
+        var jsonParagraphs = {};
+        distilled.forEach(function (element) {
+            jsonParagraphs['paragraph_' + paragraphNumber] = { element: element };
+            paragraphNumber++;
+        });
+        return jsonParagraphs;
+    };
+    WikiApi.prototype.returnResponse = function (errorCode, response) {
+        if (response === void 0) { response = null; }
+        var errorMap = {
+            "param": "Missing mandatory params",
+            "lang": "Invalid Language",
+            "page": "Page not foud",
+            "none": "Success"
+        };
+        if (errorCode === 'none') {
+            console.log(JSON.stringify((response)));
+        }
+        else {
+            var data = {
+                error: errorMap[errorCode]
+            };
+            console.log(JSON.stringify((data)));
+        }
+    };
+    return WikiApi;
+}());
+var wiki = new WikiApi();
 //# sourceMappingURL=handler.js.map
