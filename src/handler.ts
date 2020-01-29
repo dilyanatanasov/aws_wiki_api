@@ -98,7 +98,7 @@ class WikiApi {
         let paragraphNumber: number = 1;
         const jsonParagraphs: any = {};
         distilled.forEach(element => {
-            jsonParagraphs['paragraph_' + paragraphNumber] = {element};
+            jsonParagraphs['paragraph_' + paragraphNumber] = element;
             paragraphNumber++;
         });
         return jsonParagraphs;

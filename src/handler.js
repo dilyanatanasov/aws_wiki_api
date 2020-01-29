@@ -78,7 +78,7 @@ var WikiApi = (function () {
         var paragraphNumber = 1;
         var jsonParagraphs = {};
         distilled.forEach(function (element) {
-            jsonParagraphs['paragraph_' + paragraphNumber] = { element: element };
+            jsonParagraphs['paragraph_' + paragraphNumber] = element;
             paragraphNumber++;
         });
         return jsonParagraphs;
