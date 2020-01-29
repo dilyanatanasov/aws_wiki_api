@@ -30,8 +30,23 @@ else {
                 }
             }
             else {
-                parsedData.parse[distilledtext] = parsedData.parse.wikitext['*'];
-                console.log(JSON.stringify(parsedData.parse));
+                var wikitext = parsedData.parse.wikitext['*'];
+                var patterns = [
+                    /(<ref .*?<\/ref>)/g,
+                    /(<ref>.*?<\/ref>)/g,
+                    /([\[\]])/g,
+                    /(<ref.*?\/>)/g,
+                    /({{.*?}})/g
+                ];
+                var distilled = wikitext;
+                for (var _i = 0, patterns_1 = patterns; _i < patterns_1.length; _i++) {
+                    var element = patterns_1[_i];
+                    distilled = regex_replace(distilled, element);
+                }
+                var splitDistilled = distilled.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+                console.log(splitDistilled);
+                var obj = { splitDistilled: splitDistilled };
+                parsedData.parse[distilledtext] = obj;
             }
         });
     }).on('error', function (e) {
@@ -42,5 +57,8 @@ else {
             console.log(JSON.stringify(errorData));
         }
     });
+}
+function regex_replace(text, pattern) {
+    return text.replace(pattern, "");
 }
 //# sourceMappingURL=handler.js.map

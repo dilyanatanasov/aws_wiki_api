@@ -34,8 +34,23 @@ if(
                     return JSON.stringify(errorData);
                 }
             }else{
-                parsedData.parse[distilledtext] = parsedData.parse.wikitext['*'];
-                console.log(JSON.stringify(parsedData.parse));
+                const wikitext = parsedData.parse.wikitext['*'];
+                const patterns = [
+                    /(<ref .*?<\/ref>)/g,
+                    /(<ref>.*?<\/ref>)/g,
+                    /([\[\]])/g,
+                    /(<ref.*?\/>)/g,
+                    /({{.*?}})/g
+                ]
+                let distilled: string = wikitext;
+                for (const element of patterns) {
+                    distilled = regex_replace(distilled, element);
+                }
+                const splitDistilled = distilled.split('\n').map(x=>x.trim()).filter(Boolean);
+                console.log(splitDistilled);
+                const obj = {splitDistilled};
+                parsedData.parse[distilledtext] = obj;
+                // console.log(parsedData.parse);
             }
         });
     }).on('error', (e) => {
@@ -46,4 +61,8 @@ if(
            console.log(JSON.stringify(errorData));
         }
     });
+}
+
+function regex_replace(text: string, pattern: any){
+    return text.replace(pattern, "");
 }
