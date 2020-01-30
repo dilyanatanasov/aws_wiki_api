@@ -18,6 +18,13 @@ interface FormatedJson {
     distilled: object;
 }
 
+enum ErrorCode {
+    PAGE = 'page',
+    LANG = 'lang',
+    PARAM = 'param',
+    OK = 'none',
+}
+
 class WikiApi {
     // GET params
     language: string;
@@ -27,7 +34,6 @@ class WikiApi {
     distilledTextLabel: string = 'distilledtext';
     pageNotFound: string = 'missingtitle';
     // Inicialized Variables
-    httpResponseData: string = '';
     parsedHttpData: HttpData;
     formatedData: FormatedJson;
     distilledJson: object;
@@ -57,20 +63,21 @@ class WikiApi {
             // If the parameters are set then generate the url and make a GET request
             this.setUrlPath(language, pageName);
             https.get(this.wikipediaUrl, (res) => {
+                let wikiResponseData = '';
                 // Collect the response data into a string response variable
                 res.on('data', (chunk) => {
-                    this.httpResponseData += chunk;
+                    wikiResponseData += chunk;
                 });
                 // The whole response has been received
                 res.on('end', () => {
-                    const httpData = JSON.parse(this.httpResponseData);
-                    if(httpData.error !== undefined && httpData.error.code === this.pageNotFound){
+                    const wikiData = JSON.parse(wikiResponseData);
+                    if(wikiData.error !== undefined && wikiData.error.code === this.pageNotFound){
                         // If there is an error property in the parsed response and is equal to 'missingtitle'
                         // then the page doesn't exist on wikipedia
                         this.returnResponse(this.errorPage);
                     }else{
                         // If there are no errors work on the parsed data and return a formatted version
-                        this.reformatWikiJson(httpData);
+                        this.reformatWikiJson(wikiData);
                         this.convertWikiTextToDistilledJson();
                         this.formatResponseJson();
                         this.returnResponse(this.noError, this.formatedData);
@@ -152,7 +159,7 @@ class WikiApi {
     }
 
     returnResponse(errorCode: string, response: object = null){
-        if(errorCode === 'none'){
+        if(errorCode === ErrorCode.OK){
             console.log(JSON.stringify((response)));
         }else{
             const data = {

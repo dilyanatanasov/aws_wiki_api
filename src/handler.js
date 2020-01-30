@@ -1,11 +1,17 @@
 "use strict";
 exports.__esModule = true;
 var https = require("https");
+var ErrorCode;
+(function (ErrorCode) {
+    ErrorCode["PAGE"] = "page";
+    ErrorCode["LANG"] = "lang";
+    ErrorCode["PARAM"] = "param";
+    ErrorCode["OK"] = "none";
+})(ErrorCode || (ErrorCode = {}));
 var WikiApi = (function () {
     function WikiApi() {
         this.distilledTextLabel = 'distilledtext';
         this.pageNotFound = 'missingtitle';
-        this.httpResponseData = '';
         this.errorMap = {
             "param": "Missing mandatory params",
             "lang": "Invalid Language",
@@ -28,16 +34,17 @@ var WikiApi = (function () {
         else {
             this.setUrlPath(language, pageName);
             https.get(this.wikipediaUrl, function (res) {
+                var wikiResponseData = '';
                 res.on('data', function (chunk) {
-                    _this.httpResponseData += chunk;
+                    wikiResponseData += chunk;
                 });
                 res.on('end', function () {
-                    var httpData = JSON.parse(_this.httpResponseData);
-                    if (httpData.error !== undefined && httpData.error.code === _this.pageNotFound) {
+                    var wikiData = JSON.parse(wikiResponseData);
+                    if (wikiData.error !== undefined && wikiData.error.code === _this.pageNotFound) {
                         _this.returnResponse(_this.errorPage);
                     }
                     else {
-                        _this.reformatWikiJson(httpData);
+                        _this.reformatWikiJson(wikiData);
                         _this.convertWikiTextToDistilledJson();
                         _this.formatResponseJson();
                         _this.returnResponse(_this.noError, _this.formatedData);
@@ -109,7 +116,7 @@ var WikiApi = (function () {
     };
     WikiApi.prototype.returnResponse = function (errorCode, response) {
         if (response === void 0) { response = null; }
-        if (errorCode === 'none') {
+        if (errorCode === ErrorCode.OK) {
             console.log(JSON.stringify((response)));
         }
         else {
