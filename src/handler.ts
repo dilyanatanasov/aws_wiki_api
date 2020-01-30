@@ -4,17 +4,40 @@ interface AssocArray {
     [key: string]: string;
 }
 
+interface HttpData {
+    title: string;
+    pageid: number;
+    wikitext: string;
+    error?: string;
+}
+
+interface FormatedJson {
+    title: string;
+    pageid: number;
+    wikitext: string;
+    distilled: object;
+}
+
 class WikiApi {
     // GET params
     language: string;
     pageName: string;
-    url: string;
+    wikipediaUrl: string;
     // Preset Constant Variables For Comparison
     distilledTextLabel: string = 'distilledtext';
     pageNotFound: string = 'missingtitle';
     // Inicialized Variables
     httpResponseData: string = '';
+    parsedHttpData: HttpData;
+    formatedData: FormatedJson;
+    distilledJson: object;
     // Error Codes
+    errorMap: AssocArray = {
+        "param":"Missing mandatory params",
+        "lang":"Invalid Language",
+        "page":"Page not foud",
+        "none":"Success"
+    };
     errorPage: string = 'page';
     errorLanguage: string = 'lang';
     errorParam: string = 'param';
@@ -22,35 +45,38 @@ class WikiApi {
 
     constructor() {
         this.setUrlProperties();
-        this.escapeParams();
-        this.getWikiData(this.language, this.pageName);
+        this.escapeGetParams();
+        this.getConvertedWikiData(this.language, this.pageName);
     }
 
-    getWikiData(language: string, pageName: string){
-        if(
-            (language === '' || language === undefined) || (pageName === '' || pageName === undefined)
-        ){
+    getConvertedWikiData(language: string, pageName: string){
+        // If the GET parameters are not set then disallow search
+        if((language === '' || language === undefined) || (pageName === '' || pageName === undefined)){
             this.returnResponse(this.errorParam);
         }else{
+            // If the parameters are set then generate the url and make a GET request
             this.setUrlPath(language, pageName);
-            https.get(this.url, (res) => {
-                // A chunk of data has been recieved.
+            https.get(this.wikipediaUrl, (res) => {
+                // Collect the response data into a string response variable
                 res.on('data', (chunk) => {
                     this.httpResponseData += chunk;
                 });
-
-                // The whole response has been received.
+                // The whole response has been received
                 res.on('end', () => {
-                    const parsedHttpData = JSON.parse(this.httpResponseData);
-                    if(parsedHttpData.error !== undefined && parsedHttpData.error.code === this.pageNotFound){
+                    const httpData = JSON.parse(this.httpResponseData);
+                    if(httpData.error !== undefined && httpData.error.code === this.pageNotFound){
+                        // If there is an error property in the parsed response and is equal to 'missingtitle'
+                        // then the page doesn't exist on wikipedia
                         this.returnResponse(this.errorPage);
                     }else{
-                        const wikitext = parsedHttpData.parse.wikitext['*'];
-                        const distilledText = this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(wikitext)));
-                        parsedHttpData.parse[this.distilledTextLabel] = distilledText;
-                        this.returnResponse(this.noError, parsedHttpData);
+                        // If there are no errors work on the parsed data and return a formatted version
+                        this.reformatWikiJson(httpData);
+                        this.convertWikiTextToDistilledJson();
+                        this.formatResponseJson();
+                        this.returnResponse(this.noError, this.formatedData);
                     }
                 });
+            // If the page returns an error then the language is incorrectly passed
             }).on('error', (e) => {
                 this.returnResponse(this.errorLanguage);
             });
@@ -63,10 +89,10 @@ class WikiApi {
     }
 
     setUrlPath(language: string, page: string){
-        this.url = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
+        this.wikipediaUrl = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
     }
 
-    escapeParams(){
+    escapeGetParams(){
         this.language = encodeURI(this.language);
         this.pageName = encodeURI(this.pageName);
     }
@@ -79,10 +105,10 @@ class WikiApi {
         const patterns = [
             /(<ref .*?<\/ref>)/g,
             /(<ref>.*?<\/ref>)/g,
-            /([\[\]])/g,
             /(<ref.*?\/>)/g,
+            /([\[\]])/g,
             /({{.*?}})/g
-        ]
+        ];
         let distilled: string = wikitext;
         for (const element of patterns) {
             distilled = this.regex_replace(distilled, element);
@@ -104,19 +130,33 @@ class WikiApi {
         return jsonParagraphs;
     }
 
-    returnResponse(errorCode: string, response: object = null){
-        const errorMap: AssocArray = {
-            "param":"Missing mandatory params",
-            "lang":"Invalid Language",
-            "page":"Page not foud",
-            "none":"Success"
-        };
+    reformatWikiJson(httpData: any){
+        this.parsedHttpData = {
+            'title' : (httpData.parse.title !== undefined) ? httpData.parse.title: undefined,
+            'pageid' : (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
+            'wikitext' : (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
+        }
+    }
 
+    convertWikiTextToDistilledJson(){
+        this.distilledJson = this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(this.parsedHttpData.wikitext)))
+    }
+
+    formatResponseJson(){
+        this.formatedData = {
+            'title' : this.parsedHttpData.title,
+            'pageid' : this.parsedHttpData.pageid,
+            'wikitext' : this.parsedHttpData.wikitext,
+            'distilled' : this.distilledJson
+        }
+    }
+
+    returnResponse(errorCode: string, response: object = null){
         if(errorCode === 'none'){
             console.log(JSON.stringify((response)));
         }else{
             const data = {
-                error: errorMap[errorCode]
+                error: this.errorMap[errorCode]
             }
             console.log(JSON.stringify((data)));
         }

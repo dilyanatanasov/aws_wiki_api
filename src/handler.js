@@ -6,35 +6,41 @@ var WikiApi = (function () {
         this.distilledTextLabel = 'distilledtext';
         this.pageNotFound = 'missingtitle';
         this.httpResponseData = '';
+        this.errorMap = {
+            "param": "Missing mandatory params",
+            "lang": "Invalid Language",
+            "page": "Page not foud",
+            "none": "Success"
+        };
         this.errorPage = 'page';
         this.errorLanguage = 'lang';
         this.errorParam = 'param';
         this.noError = 'none';
         this.setUrlProperties();
-        this.escapeParams();
-        this.getWikiData(this.language, this.pageName);
+        this.escapeGetParams();
+        this.getConvertedWikiData(this.language, this.pageName);
     }
-    WikiApi.prototype.getWikiData = function (language, pageName) {
+    WikiApi.prototype.getConvertedWikiData = function (language, pageName) {
         var _this = this;
         if ((language === '' || language === undefined) || (pageName === '' || pageName === undefined)) {
             this.returnResponse(this.errorParam);
         }
         else {
             this.setUrlPath(language, pageName);
-            https.get(this.url, function (res) {
+            https.get(this.wikipediaUrl, function (res) {
                 res.on('data', function (chunk) {
                     _this.httpResponseData += chunk;
                 });
                 res.on('end', function () {
-                    var parsedHttpData = JSON.parse(_this.httpResponseData);
-                    if (parsedHttpData.error !== undefined && parsedHttpData.error.code === _this.pageNotFound) {
+                    var httpData = JSON.parse(_this.httpResponseData);
+                    if (httpData.error !== undefined && httpData.error.code === _this.pageNotFound) {
                         _this.returnResponse(_this.errorPage);
                     }
                     else {
-                        var wikitext = parsedHttpData.parse.wikitext['*'];
-                        var distilledText = _this.paragraphsToJson(_this.paragraphsToArray(_this.filterMediaTags(wikitext)));
-                        parsedHttpData.parse[_this.distilledTextLabel] = distilledText;
-                        _this.returnResponse(_this.noError, parsedHttpData);
+                        _this.reformatWikiJson(httpData);
+                        _this.convertWikiTextToDistilledJson();
+                        _this.formatResponseJson();
+                        _this.returnResponse(_this.noError, _this.formatedData);
                     }
                 });
             }).on('error', function (e) {
@@ -47,9 +53,9 @@ var WikiApi = (function () {
         this.pageName = 'DoceboLMS';
     };
     WikiApi.prototype.setUrlPath = function (language, page) {
-        this.url = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
+        this.wikipediaUrl = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
     };
-    WikiApi.prototype.escapeParams = function () {
+    WikiApi.prototype.escapeGetParams = function () {
         this.language = encodeURI(this.language);
         this.pageName = encodeURI(this.pageName);
     };
@@ -60,8 +66,8 @@ var WikiApi = (function () {
         var patterns = [
             /(<ref .*?<\/ref>)/g,
             /(<ref>.*?<\/ref>)/g,
-            /([\[\]])/g,
             /(<ref.*?\/>)/g,
+            /([\[\]])/g,
             /({{.*?}})/g
         ];
         var distilled = wikitext;
@@ -83,20 +89,32 @@ var WikiApi = (function () {
         });
         return jsonParagraphs;
     };
+    WikiApi.prototype.reformatWikiJson = function (httpData) {
+        this.parsedHttpData = {
+            'title': (httpData.parse.title !== undefined) ? httpData.parse.title : undefined,
+            'pageid': (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
+            'wikitext': (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
+        };
+    };
+    WikiApi.prototype.convertWikiTextToDistilledJson = function () {
+        this.distilledJson = this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(this.parsedHttpData.wikitext)));
+    };
+    WikiApi.prototype.formatResponseJson = function () {
+        this.formatedData = {
+            'title': this.parsedHttpData.title,
+            'pageid': this.parsedHttpData.pageid,
+            'wikitext': this.parsedHttpData.wikitext,
+            'distilled': this.distilledJson
+        };
+    };
     WikiApi.prototype.returnResponse = function (errorCode, response) {
         if (response === void 0) { response = null; }
-        var errorMap = {
-            "param": "Missing mandatory params",
-            "lang": "Invalid Language",
-            "page": "Page not foud",
-            "none": "Success"
-        };
         if (errorCode === 'none') {
             console.log(JSON.stringify((response)));
         }
         else {
             var data = {
-                error: errorMap[errorCode]
+                error: this.errorMap[errorCode]
             };
             console.log(JSON.stringify((data)));
         }
