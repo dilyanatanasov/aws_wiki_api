@@ -1,22 +1,5 @@
 import * as https from 'https';
-
-interface AssocArray {
-    [key: string]: string;
-}
-
-interface HttpData {
-    title: string;
-    pageid: number;
-    wikitext: string;
-    error?: string;
-}
-
-interface FormatedJson {
-    title: string;
-    pageid: number;
-    wikitext: string;
-    distilled: object;
-}
+import {AssocArray} from "./interfaces";
 
 enum ErrorCode {
     PAGE = 'page',
@@ -33,10 +16,6 @@ class WikiApi {
     // Preset Constant Variables For Comparison
     distilledTextLabel: string = 'distilledtext';
     pageNotFound: string = 'missingtitle';
-    // Inicialized Variables
-    parsedHttpData: HttpData;
-    formatedData: FormatedJson;
-    distilledJson: object;
     // Error Codes
     errorMap: AssocArray = {
         "param":"Missing mandatory params",
@@ -49,19 +28,18 @@ class WikiApi {
     errorParam: string = 'param';
     noError: string = 'none';
 
-    constructor() {
-        this.setUrlProperties();
+    constructor(language: string, pageName: string) {
+        this.setUrlProperties(language, pageName);
         this.escapeGetParams();
-        this.getConvertedWikiData(this.language, this.pageName);
     }
 
-    getConvertedWikiData(language: string, pageName: string){
+    getConvertedWikiData(){
         // If the GET parameters are not set then disallow search
-        if((language === '' || language === undefined) || (pageName === '' || pageName === undefined)){
+        if((this.language === '' || this.language === undefined) || (this.pageName === '' || this.pageName === undefined)){
             this.returnResponse(this.errorParam);
         }else{
             // If the parameters are set then generate the url and make a GET request
-            this.setUrlPath(language, pageName);
+            this.setUrlPath();
             https.get(this.wikipediaUrl, (res) => {
                 let wikiResponseData = '';
                 // Collect the response data into a string response variable
@@ -77,10 +55,10 @@ class WikiApi {
                         this.returnResponse(this.errorPage);
                     }else{
                         // If there are no errors work on the parsed data and return a formatted version
-                        this.reformatWikiJson(wikiData);
-                        this.convertWikiTextToDistilledJson();
-                        this.formatResponseJson();
-                        this.returnResponse(this.noError, this.formatedData);
+                        const reformatedWikiJson = this.reformatWikiJson(wikiData);
+                        const distilledObject = this.convertWikiTextToDistilledJson(reformatedWikiJson);
+                        const formatedResponseJson = this.formatResponseJson(reformatedWikiJson, distilledObject);
+                        this.returnResponse(this.noError, formatedResponseJson);
                     }
                 });
             // If the page returns an error then the language is incorrectly passed
@@ -90,13 +68,13 @@ class WikiApi {
         }
     }
 
-    setUrlProperties(){
-        this.language = 'en';
-        this.pageName = 'DoceboLMS';
+    setUrlProperties(language: string, pageName: string){
+        this.language = language;
+        this.pageName = pageName;
     }
 
-    setUrlPath(language: string, page: string){
-        this.wikipediaUrl = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
+    setUrlPath(){
+        this.wikipediaUrl = "https://" + this.language + ".wikipedia.org/w/api.php?action=parse&page=" + this.pageName + "&prop=wikitext&format=json";
     }
 
     escapeGetParams(){
@@ -123,8 +101,8 @@ class WikiApi {
         return distilled;
     }
 
-    paragraphsToArray(distilled: string){
-        return distilled.split('\n').map(x=>x.trim()).filter(Boolean)
+    paragraphsToArray(distilledText: string){
+        return distilledText.split('\n').map(x=>x.trim()).filter(Boolean);
     }
 
     paragraphsToJson(distilled: any[]){
@@ -138,23 +116,23 @@ class WikiApi {
     }
 
     reformatWikiJson(httpData: any){
-        this.parsedHttpData = {
-            'title' : (httpData.parse.title !== undefined) ? httpData.parse.title: undefined,
-            'pageid' : (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
-            'wikitext' : (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
+        return{
+            title : (httpData.parse.title !== undefined) ? httpData.parse.title: undefined,
+            pageid : (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
+            wikitext : (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
         }
     }
 
-    convertWikiTextToDistilledJson(){
-        this.distilledJson = this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(this.parsedHttpData.wikitext)))
+    convertWikiTextToDistilledJson(reformatedWikiJson: any){
+        return this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(reformatedWikiJson.wikitext)))
     }
 
-    formatResponseJson(){
-        this.formatedData = {
-            'title' : this.parsedHttpData.title,
-            'pageid' : this.parsedHttpData.pageid,
-            'wikitext' : this.parsedHttpData.wikitext,
-            'distilled' : this.distilledJson
+    formatResponseJson(reformatedWikiJson: any, distilledtext: any){
+        return {
+            'title' : reformatedWikiJson.title,
+            'pageid' : reformatedWikiJson.pageid,
+            'wikitext' : reformatedWikiJson.wikitext,
+            'distilledtext' : distilledtext
         }
     }
 
@@ -170,4 +148,5 @@ class WikiApi {
     }
 }
 
-const wiki = new WikiApi();
+const wiki = new WikiApi('en','DoceboLMS');
+wiki.getConvertedWikiData();

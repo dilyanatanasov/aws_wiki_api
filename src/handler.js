@@ -9,7 +9,7 @@ var ErrorCode;
     ErrorCode["OK"] = "none";
 })(ErrorCode || (ErrorCode = {}));
 var WikiApi = (function () {
-    function WikiApi() {
+    function WikiApi(language, pageName) {
         this.distilledTextLabel = 'distilledtext';
         this.pageNotFound = 'missingtitle';
         this.errorMap = {
@@ -22,17 +22,16 @@ var WikiApi = (function () {
         this.errorLanguage = 'lang';
         this.errorParam = 'param';
         this.noError = 'none';
-        this.setUrlProperties();
+        this.setUrlProperties(language, pageName);
         this.escapeGetParams();
-        this.getConvertedWikiData(this.language, this.pageName);
     }
-    WikiApi.prototype.getConvertedWikiData = function (language, pageName) {
+    WikiApi.prototype.getConvertedWikiData = function () {
         var _this = this;
-        if ((language === '' || language === undefined) || (pageName === '' || pageName === undefined)) {
+        if ((this.language === '' || this.language === undefined) || (this.pageName === '' || this.pageName === undefined)) {
             this.returnResponse(this.errorParam);
         }
         else {
-            this.setUrlPath(language, pageName);
+            this.setUrlPath();
             https.get(this.wikipediaUrl, function (res) {
                 var wikiResponseData = '';
                 res.on('data', function (chunk) {
@@ -44,10 +43,10 @@ var WikiApi = (function () {
                         _this.returnResponse(_this.errorPage);
                     }
                     else {
-                        _this.reformatWikiJson(wikiData);
-                        _this.convertWikiTextToDistilledJson();
-                        _this.formatResponseJson();
-                        _this.returnResponse(_this.noError, _this.formatedData);
+                        var reformatedWikiJson = _this.reformatWikiJson(wikiData);
+                        var distilledObject = _this.convertWikiTextToDistilledJson(reformatedWikiJson);
+                        var formatedResponseJson = _this.formatResponseJson(reformatedWikiJson, distilledObject);
+                        _this.returnResponse(_this.noError, formatedResponseJson);
                     }
                 });
             }).on('error', function (e) {
@@ -55,12 +54,12 @@ var WikiApi = (function () {
             });
         }
     };
-    WikiApi.prototype.setUrlProperties = function () {
-        this.language = 'en';
-        this.pageName = 'DoceboLMS';
+    WikiApi.prototype.setUrlProperties = function (language, pageName) {
+        this.language = language;
+        this.pageName = pageName;
     };
-    WikiApi.prototype.setUrlPath = function (language, page) {
-        this.wikipediaUrl = "https://" + language + ".wikipedia.org/w/api.php?action=parse&page=" + page + "&prop=wikitext&format=json";
+    WikiApi.prototype.setUrlPath = function () {
+        this.wikipediaUrl = "https://" + this.language + ".wikipedia.org/w/api.php?action=parse&page=" + this.pageName + "&prop=wikitext&format=json";
     };
     WikiApi.prototype.escapeGetParams = function () {
         this.language = encodeURI(this.language);
@@ -84,8 +83,8 @@ var WikiApi = (function () {
         }
         return distilled;
     };
-    WikiApi.prototype.paragraphsToArray = function (distilled) {
-        return distilled.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    WikiApi.prototype.paragraphsToArray = function (distilledText) {
+        return distilledText.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
     };
     WikiApi.prototype.paragraphsToJson = function (distilled) {
         var paragraphNumber = 1;
@@ -97,21 +96,21 @@ var WikiApi = (function () {
         return jsonParagraphs;
     };
     WikiApi.prototype.reformatWikiJson = function (httpData) {
-        this.parsedHttpData = {
-            'title': (httpData.parse.title !== undefined) ? httpData.parse.title : undefined,
-            'pageid': (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
-            'wikitext': (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
+        return {
+            title: (httpData.parse.title !== undefined) ? httpData.parse.title : undefined,
+            pageid: (httpData.parse.pageid !== undefined) ? httpData.parse.pageid : undefined,
+            wikitext: (httpData.parse.wikitext['*'] !== undefined) ? httpData.parse.wikitext['*'] : undefined
         };
     };
-    WikiApi.prototype.convertWikiTextToDistilledJson = function () {
-        this.distilledJson = this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(this.parsedHttpData.wikitext)));
+    WikiApi.prototype.convertWikiTextToDistilledJson = function (reformatedWikiJson) {
+        return this.paragraphsToJson(this.paragraphsToArray(this.filterMediaTags(reformatedWikiJson.wikitext)));
     };
-    WikiApi.prototype.formatResponseJson = function () {
-        this.formatedData = {
-            'title': this.parsedHttpData.title,
-            'pageid': this.parsedHttpData.pageid,
-            'wikitext': this.parsedHttpData.wikitext,
-            'distilled': this.distilledJson
+    WikiApi.prototype.formatResponseJson = function (reformatedWikiJson, distilledtext) {
+        return {
+            'title': reformatedWikiJson.title,
+            'pageid': reformatedWikiJson.pageid,
+            'wikitext': reformatedWikiJson.wikitext,
+            'distilledtext': distilledtext
         };
     };
     WikiApi.prototype.returnResponse = function (errorCode, response) {
@@ -128,5 +127,6 @@ var WikiApi = (function () {
     };
     return WikiApi;
 }());
-var wiki = new WikiApi();
+var wiki = new WikiApi('en', 'DoceboLMS');
+wiki.getConvertedWikiData();
 //# sourceMappingURL=handler.js.map
