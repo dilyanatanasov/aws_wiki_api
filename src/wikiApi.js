@@ -119,10 +119,10 @@ var WikiApi = (function () {
             console.log(JSON.stringify((response)));
         }
         else {
-            var data = {
+            response = {
                 error: this.errorMap[errorCode]
             };
-            console.log(JSON.stringify((data)));
+            console.log(JSON.stringify((response)));
         }
     };
     return WikiApi;
