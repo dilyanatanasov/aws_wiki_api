@@ -28,7 +28,7 @@ var WikiApi = (function () {
     WikiApi.prototype.getConvertedWikiData = function () {
         var _this = this;
         if ((this.language === '' || this.language === undefined) || (this.pageName === '' || this.pageName === undefined)) {
-            this.returnResponse(this.errorParam);
+            return this.returnResponse(this.errorParam);
         }
         else {
             this.setUrlPath();
@@ -40,17 +40,17 @@ var WikiApi = (function () {
                 res.on('end', function () {
                     var wikiData = JSON.parse(wikiResponseData);
                     if (wikiData.error !== undefined && wikiData.error.code === _this.pageNotFound) {
-                        _this.returnResponse(_this.errorPage);
+                        return _this.returnResponse(_this.errorPage);
                     }
                     else {
                         var reformatedWikiJson = _this.reformatWikiJson(wikiData);
                         var distilledObject = _this.convertWikiTextToDistilledJson(reformatedWikiJson);
                         var formatedResponseJson = _this.formatResponseJson(reformatedWikiJson, distilledObject);
-                        _this.returnResponse(_this.noError, formatedResponseJson);
+                        return _this.returnResponse(_this.noError, formatedResponseJson);
                     }
                 });
             }).on('error', function (e) {
-                _this.returnResponse(_this.errorLanguage);
+                return _this.returnResponse(_this.errorLanguage);
             });
         }
     };
@@ -116,13 +116,13 @@ var WikiApi = (function () {
     WikiApi.prototype.returnResponse = function (errorCode, response) {
         if (response === void 0) { response = null; }
         if (errorCode === ErrorCode.OK) {
-            console.log(JSON.stringify((response)));
+            return JSON.stringify((response));
         }
         else {
             response = {
                 error: this.errorMap[errorCode]
             };
-            console.log(JSON.stringify((response)));
+            return JSON.stringify((response));
         }
     };
     return WikiApi;

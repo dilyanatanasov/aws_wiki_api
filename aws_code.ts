@@ -43,7 +43,7 @@ exports.handler = (event:any , context: any, callback: any) => {
     escapeGetParams();
     // If the GET parameters are not set then disallow search
     if ((event.language === '' || event.language === undefined) || (event.pageName === '' || event.pageName === undefined)) {
-        returnResponse(errorParam);
+        callback(null, returnResponse(errorParam));
     } else {
         // If the parameters are set then generate the url and make a GET request
         setUrlPath();
@@ -59,18 +59,18 @@ exports.handler = (event:any , context: any, callback: any) => {
                 if (wikiData.error !== undefined && wikiData.error.code === pageNotFound) {
                     // If there is an error property in the parsed response and is equal to 'missingtitle'
                     // then the page doesn't exist on wikipedia
-                    callback(returnResponse(errorPage));
+                    callback(null, returnResponse(errorPage));
                 } else {
                     // If there are no errors work on the parsed data and return a formatted version
                     const reformatedWikiJson = reformatWikiJson(wikiData);
                     const distilledObject = convertWikiTextToDistilledJson(reformatedWikiJson);
                     const formatedResponseJson = formatResponseJson(reformatedWikiJson, distilledObject);
-                    callback(returnResponse(noError, formatedResponseJson));
+                    callback(null, returnResponse(noError, formatedResponseJson));
                 }
             });
             // If the page returns an error then the language is incorrectly passed
         }).on('error', (e) => {
-            callback(returnResponse(errorLanguage));
+            callback(null, returnResponse(errorLanguage));
         });
     }
 }

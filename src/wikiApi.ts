@@ -44,7 +44,7 @@ export class WikiApi {
     getConvertedWikiData(){
         // If the GET parameters are not set then disallow search
         if((this.language === '' || this.language === undefined) || (this.pageName === '' || this.pageName === undefined)){
-            this.returnResponse(this.errorParam);
+            return this.returnResponse(this.errorParam);
         }else{
             // If the parameters are set then generate the url and make a GET request
             this.setUrlPath();
@@ -60,18 +60,18 @@ export class WikiApi {
                     if(wikiData.error !== undefined && wikiData.error.code === this.pageNotFound){
                         // If there is an error property in the parsed response and is equal to 'missingtitle'
                         // then the page doesn't exist on wikipedia
-                        this.returnResponse(this.errorPage);
+                        return this.returnResponse(this.errorPage);
                     }else{
                         // If there are no errors work on the parsed data and return a formatted version
                         const reformatedWikiJson = this.reformatWikiJson(wikiData);
                         const distilledObject = this.convertWikiTextToDistilledJson(reformatedWikiJson);
                         const formatedResponseJson = this.formatResponseJson(reformatedWikiJson, distilledObject);
-                        this.returnResponse(this.noError, formatedResponseJson);
+                        return this.returnResponse(this.noError, formatedResponseJson);
                     }
                 });
             // If the page returns an error then the language is incorrectly passed
             }).on('error', (e) => {
-                this.returnResponse(this.errorLanguage);
+                return this.returnResponse(this.errorLanguage);
             });
         }
     }
@@ -157,12 +157,12 @@ export class WikiApi {
     // Return a response json depending on the error code
     returnResponse(errorCode: string, response: object = null){
         if(errorCode === ErrorCode.OK){
-            console.log(JSON.stringify((response)));
+            return JSON.stringify((response));
         }else{
             response = {
                 error: this.errorMap[errorCode]
             }
-            console.log(JSON.stringify((response)));
+            return JSON.stringify((response));
         }
     }
 }

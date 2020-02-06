@@ -27,7 +27,7 @@ exports.handler = function (event, context, callback) {
     setUrlProperties(event.language, event.pageName);
     escapeGetParams();
     if ((event.language === '' || event.language === undefined) || (event.pageName === '' || event.pageName === undefined)) {
-        returnResponse(errorParam);
+        callback(null, returnResponse(errorParam));
     }
     else {
         setUrlPath();
@@ -39,17 +39,17 @@ exports.handler = function (event, context, callback) {
             res.on('end', function () {
                 var wikiData = JSON.parse(wikiResponseData);
                 if (wikiData.error !== undefined && wikiData.error.code === pageNotFound) {
-                    callback(returnResponse(errorPage));
+                    callback(null, returnResponse(errorPage));
                 }
                 else {
                     var reformatedWikiJson = reformatWikiJson(wikiData);
                     var distilledObject = convertWikiTextToDistilledJson(reformatedWikiJson);
                     var formatedResponseJson = formatResponseJson(reformatedWikiJson, distilledObject);
-                    callback(returnResponse(noError, formatedResponseJson));
+                    callback(null, returnResponse(noError, formatedResponseJson));
                 }
             });
         }).on('error', function (e) {
-            callback(returnResponse(errorLanguage));
+            callback(null, returnResponse(errorLanguage));
         });
     }
 };
